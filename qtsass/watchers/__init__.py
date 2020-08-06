@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright (c) 2015 Yann Lanthony
@@ -7,17 +6,26 @@
 # Licensed under the terms of the MIT License
 # (See LICENSE.txt for details)
 # -----------------------------------------------------------------------------
-"""qtsass command line interface."""
+"""The qtsass Watcher is responsible for watching and recompiling sass.
+
+The default Watcher is the QtWatcher. If Qt is unavailable we fallback to the
+PollingWatcher.
+"""
 
 # yapf: disable
 
 from __future__ import absolute_import
 
 # Local imports
-from qtsass import cli
+from qtsass.watchers.polling import PollingWatcher
+
+
+try:
+    from qtsass.watchers.qt import QtWatcher
+except ImportError:
+    QtWatcher = None
 
 
 # yapf: enable
 
-if __name__ == '__main__':
-    cli.main()
+Watcher = QtWatcher or PollingWatcher

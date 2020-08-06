@@ -8,9 +8,17 @@
 # -----------------------------------------------------------------------------
 """Conform qss to compliant scss and css to valid qss."""
 
-# Standard library imports
+# yapf: disable
+
 from __future__ import absolute_import, print_function
+
+# Standard library imports
 import re
+
+
+# yapf: enable
+
+_DEFAULT_COORDS = ('x1', 'y1', 'x2', 'y2')
 
 
 class Conformer(object):
@@ -18,12 +26,10 @@ class Conformer(object):
 
     def to_scss(self, qss):
         """Transform some qss to valid scss."""
-
         return NotImplemented
 
     def to_qss(self, css):
         """Transform some css to valid qss."""
-
         return NotImplemented
 
 
@@ -31,13 +37,11 @@ class NotConformer(Conformer):
     """Conform QSS "!" in selectors."""
 
     def to_scss(self, qss):
-        """Replaces "!" in selectors with "_qnot_"."""
-
+        """Replace "!" in selectors with "_qnot_"."""
         return qss.replace(':!', ':_qnot_')
 
     def to_qss(self, css):
-        """Replaces "_qnot_" in selectors with "!"."""
-
+        """Replace "_qnot_" in selectors with "!"."""
         return css.replace(':_qnot_', ':!')
 
 
@@ -45,25 +49,55 @@ class QLinearGradientConformer(Conformer):
     """Conform QSS qlineargradient function."""
 
     qss_pattern = re.compile(
-        'qlineargradient\('
-        '((?:(?:\s+)?(?:x1|y1|x2|y2):(?:\s+)?[0-9A-Za-z$_-]+,?)+)'  # coords
-        '((?:(?:\s+)?stop:.*,?)+(?:\s+)?)?'  # stops
-        '\)',
-        re.MULTILINE
+        r'qlineargradient\('
+        r'((?:(?:\s+)?(?:x1|y1|x2|y2):(?:\s+)?[0-9A-Za-z$_\.-]+,?)+)'  # coords
+        r'((?:(?:\s+)?stop:.*,?)+(?:\s+)?)?'  # stops
+        r'\)',
+        re.MULTILINE,
     )
 
-    def _conform_group_to_scss(self, group):
+    def _conform_coords_to_scss(self, group):
         """
-        Takes a qss str containing xy coords or stops and returns a str
-        containing just the values.
+        Take a qss str with xy coords and returns the values.
 
-        'x1: 0, y1: 0, x2: 0, y2: 0' => '0, 0, 0, 0'
-        'stop: 0 red, stop: 1 blue' => '0 red, 1 blue'
+          'x1: 0, y1: 0, x2: 0, y2: 0' => '0, 0, 0, 0'
+          'y1: 1' => '0, 1, 0, 0'
+        """
+        values = ['0', '0', '0', '0']
+        for key_values in [part.split(':', 1) for part in group.split(',')]:
+            try:
+                key, value = key_values
+                key = key.strip()
+                if key in _DEFAULT_COORDS:
+                    pos = _DEFAULT_COORDS.index(key)
+                    if pos >= 0 and pos <= 3:
+                        values[pos] = value.strip()
+            except ValueError:
+                pass
+        return ', '.join(values)
+
+    def _conform_stops_to_scss(self, group):
+        """
+        Take a qss str with stops and returns the values.
+
+          'stop: 0 red, stop: 1 blue' => '0 red, 1 blue'
         """
         new_group = []
-        for part in group.strip().split(','):
+        split = [""]
+        bracket_level = 0
+        for char in group:
+            if not bracket_level and char == ",":
+                split.append("")
+                continue
+            elif char == "(":
+                bracket_level += 1
+            elif char == ")":
+                bracket_level -= 1
+            split[-1] += char
+
+        for part in split:
             if part:
-                _, value = part.split(':')
+                _, value = part.split(':', 1)
                 new_group.append(value.strip())
         return ', '.join(new_group)
 
@@ -71,31 +105,28 @@ class QLinearGradientConformer(Conformer):
         """
         Conform qss qlineargradient to scss qlineargradient form.
 
-        Normalizes all whitespace including the removal of newline chars.
+        Normalize all whitespace including the removal of newline chars.
 
         qlineargradient(x1: 0, y1: 0, x2: 0, y2: 0, stop: 0 red, stop: 1 blue)
         =>
         qlineargradient(0, 0, 0, 0, (0 red, 1 blue))
         """
-
         conformed = qss
 
         for coords, stops in self.qss_pattern.findall(qss):
-
-            new_coords = self._conform_group_to_scss(coords)
+            new_coords = self._conform_coords_to_scss(coords)
             conformed = conformed.replace(coords, new_coords, 1)
 
             if not stops:
                 continue
 
-            new_stops = ', ({})'.format(self._conform_group_to_scss(stops))
+            new_stops = ', ({})'.format(self._conform_stops_to_scss(stops))
             conformed = conformed.replace(stops, new_stops, 1)
 
         return conformed
 
     def to_qss(self, css):
-        """Handled by qlineargradient function passed to sass.compile"""
-
+        """Transform to qss from css."""
         return css
 
 
@@ -112,7 +143,6 @@ def scss_conform(input_str):
     :param input_str: QSS string
     :returns: Valid SCSS string
     """
-
     conformed = input_str
     for conformer in conformers:
         conformed = conformer.to_scss(conformed)
@@ -130,7 +160,6 @@ def qt_conform(input_str):
     :param input_str: CSS string
     :returns: Valid QSS string
     """
-
     conformed = input_str
     for conformer in conformers[::-1]:
         conformed = conformer.to_qss(conformed)

@@ -2,6 +2,7 @@
 ## Eclipse
 #################
 
+*.orig
 *.pydevproject
 .project
 .metadata
@@ -264,3 +265,13 @@ crashlytics-build.properties
 
 # pytest
 .pytest_cache
+
+# Project virtualenv
+venv/
+
+# Rever
+rever/
+activate.xsh
+
+# Loghub
+CHANGELOG.temp
